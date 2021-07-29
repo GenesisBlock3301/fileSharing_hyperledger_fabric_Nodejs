@@ -1,0 +1,25 @@
+GET http://localhost:3000
+###
+GET http://localhost:3000/book/
+###
+POST http://localhost:3000/register
+Content-Type: application/json
+
+{
+    "email":"nas@gmail.com",
+    "password":"nas12345",
+    "name":"N A Sifat"
+}
+
+###
+POST http://localhost:3000/login
+Content-Type: application/json
+
+{
+    "email":"nas1@gmail.com",
+    "password":"nas12345"
+}
+
+###
+GET  http://localhost:3000/logout
+Content-Type: application/json
