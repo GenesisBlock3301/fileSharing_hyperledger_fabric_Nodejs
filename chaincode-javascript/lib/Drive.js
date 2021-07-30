@@ -51,32 +51,32 @@ class Drive extends Contract {
         return JSON.stringify(file);
     }
 
-    async FindFile(ctx, key) {
-        const fileJSON = await ctx.stub.getState(key); // get the asset from chaincode state
+    async FindFile(ctx, Key) {
+        const fileJSON = await ctx.stub.getState(Key); // get the asset from chaincode state
         if (!fileJSON || fileJSON.length === 0) {
-            throw new Error(`The file with ${key} does not exist`);
+            throw new Error(`The file with ${Key} does not exist`);
         }
         return fileJSON.toString();
     }
 
-    async ChangeFileName(ctx, key, newName) {
-        const fileJSON = await this.AssetExists(ctx, key);
+    async ChangeFileName(ctx, Key, newName) {
+        const fileJSON = await this.AssetExists(ctx, Key);
         if (!fileJSON || fileJSON.length === 0) {
-            throw new Error(`The asset ${key} does not exist`);
+            throw new Error(`The asset ${Key} does not exist`);
         }
         // overwriting original asset with new asset
         let file = JSON.parse(fileJSON.toString());
         file.Name = newName;
-        await ctx.stub.putState(key, Buffer.from(JSON.stringify(file)));
+        await ctx.stub.putState(Key, Buffer.from(JSON.stringify(file)));
         return JSON.stringify(file);
     }
 
-    async DeleteFile(ctx, key) {
-        const fileJSON = await this.AssetExists(ctx, key);
+    async DeleteFile(ctx, Key) {
+        const fileJSON = await this.AssetExists(ctx, Key);
         if (!fileJSON || fileJSON.length === 0) {
-            throw new Error(`The asset ${key} does not exist`);
+            throw new Error(`The asset ${Key} does not exist`);
         }
-        await ctx.stub.deleteState(key);
+        await ctx.stub.deleteState(Key);
         return JSON.stringify({
             status: 'File Deleted'
         });
@@ -109,12 +109,12 @@ class Drive extends Contract {
         return await this.GetQueryResultForQueryString(ctx, JSON.stringify(queryString));
     }
 
-    async DeleteFileShare(ctx, key) {
-        const fileShareJSON = await this.AssetExists(ctx, key);
+    async DeleteFileShare(ctx, Key) {
+        const fileShareJSON = await this.AssetExists(ctx, Key);
         if (!fileShareJSON || fileShareJSON.length === 0) {
-            throw new Error(`file share ${key} does not exist`);
+            throw new Error(`file share ${Key} does not exist`);
         }
-        await ctx.stub.deleteState(key);
+        await ctx.stub.deleteState(Key);
         return JSON.stringify({
             status: 'FileShare Deleted'
         });

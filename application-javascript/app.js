@@ -5,9 +5,12 @@ const FabricCAServices = require('fabric-ca-client');
 const path = require('path');
 const {buildCAClient, registerAndEnrollUser, enrollAdmin} = require('../../test-application/javascript/CAUtil.js');
 const {buildCCPOrg1, buildWallet} = require('../../test-application/javascript/AppUtil.js');
+const crypto = require("crypto");
+const fs = require("fs");
+const util = require("util");
 
 const channelName = 'mychannel';
-const chaincodeName = 'drive12';
+const chaincodeName = 'drive13';
 const mspOrg1 = 'Org1MSP';
 const walletPath = path.join(__dirname, 'wallet');
 const org1UserId = 'appUser';
@@ -44,11 +47,23 @@ async function main() {
 
             const express = require('express')
             const cookieParser = require("cookie-parser")
+            const fileUpload = require("express-fileupload")
+            const path = require("path")
+            const crypto = require('crypto')
+            const fs = require('fs')
+            const util = require('util')
             const app = express()
             const port = 3000
             app.use(cookieParser())
+            app.use(fileUpload({
+                useTempFiles: true,
+                tempFileDir: 'tmp/',
+                createParentPath: true,
+                // preserveExtension:true
+            }));
             app.use(express.urlencoded({extended: false}))
             app.use(express.json())
+            app.use(express.static('public'))
 
             app.get('/', (req, res) => {
                 res.send('Hello World!')
@@ -85,7 +100,7 @@ async function main() {
                 const {email, password} = req.body
                 try {
                     let result = await contract.evaluateTransaction('FindUser', email, password);
-                    res.cookie('user', result, {maxAge: 3600_000, httpOnly: true})
+                    res.cookie('user', result.toString(), {maxAge: 3600_000, httpOnly: true})
                     res.send(result.toString())
                 } catch (error) {
                     res.status(400).send(error.toString())
@@ -94,12 +109,64 @@ async function main() {
             app.get('/logout', async function (req, res) {
 
                 try {
-                    res.cookie('user', null, {maxAge: 3600_000, httpOnly: true})
+                    res.cookie('user', '', {maxAge: -1, httpOnly: true})
                     res.send("Successfully logout")
                 } catch (error) {
                     res.status(400).send(error.toString())
                 }
             })
+
+            //helper function
+            async function sha256(filePath) {
+
+                const readFile = util.promisify(fs.readFile)
+                const data = await readFile(filePath)
+                const hash = crypto.createHash('sha256')
+                hash.update(data)
+                return hash.digest('base64')
+            }
+
+            app.post('/file', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                //facilated file upload
+                const uploadedFile = req.files?.uploadedFile
+                if (uploadedFile === undefined) {
+                    return res.status(400).send("You must upload a file...")
+                }
+                const fileName = uploadedFile.name
+                const fileDestination = path.join(__dirname, 'public', 'uploadedFiles', fileName)
+                console.log(path.join('public', 'uploadedFiles', fileName))
+                uploadedFile.mv(fileDestination, async (error) => {
+                    if (error !== undefined) {
+                        return res.status(500).send(`Server error. Failed to move file ${error}...`)
+                    }
+                    const downloadLink = path.join(fileDestination, fileName)
+                    console.log(downloadLink)
+
+                    const user = JSON.parse(req.cookies.user.toString())
+                    console.log(user)
+                    let uploaderEmail = user.Email;
+                    console.log(uploaderEmail)
+                    const key = `file_${uploaderEmail}_${fileName}`;
+                    const fileHash = await sha256(fileDestination)
+                    try {
+                        let result = await contract.evaluateTransaction('CreateFile',
+                            key, fileName, downloadLink,
+                            fileHash, uploaderEmail);
+                        await contract.submitTransaction('CreateFile',
+                            key, fileName, downloadLink,
+                            fileHash, uploaderEmail);
+                        return res.send(result)
+                    } catch (error) {
+                        return res.status(400).send(error.toString())
+                    }
+
+                })
+
+            })
+
 
             app.listen(port, () => {
                 console.log(`Server listening at http://localhost:${port}`)
@@ -114,5 +181,6 @@ async function main() {
         console.error(`******** FAILED to run the application: ${error}`);
     }
 }
+
 
 main();
