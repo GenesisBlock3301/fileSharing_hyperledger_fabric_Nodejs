@@ -6,7 +6,7 @@ POST http://localhost:3000/register
 Content-Type: application/json
 
 {
-    "email":"nas2@gmail.com",
+    "email":"nas@gmail.com",
     "password":"nas12345",
     "name":"N A Sifat"
 }
@@ -16,7 +16,7 @@ POST http://localhost:3000/login
 Content-Type: application/json
 
 {
-    "email":"nas1@gmail.com",
+    "email":"nas@gmail.com",
     "password":"nas12345"
 }
 
@@ -38,6 +38,9 @@ Content-Disposition: form-data; name="uploadedFile"; filename="api_test.rest"
 GET  http://localhost:3000/file
 Content-Type: application/json
 
+{
+    "email":"nas@gmail.com"
+}
 ###
 GET  http://localhost:3000/file/file_nas@gmail.com_api_test.rest
 
@@ -45,7 +48,7 @@ GET  http://localhost:3000/file/file_nas@gmail.com_api_test.rest
 ###
 PUT  http://localhost:3000/file/file_nas@gmail.com_api_test.rest
 Content-Type: application/json
-uploadedFile.UploaderEmail
+
 {
     "newFileName":"api.rest"
 }
@@ -71,4 +74,4 @@ GET  http://localhost:3000/fileShare/byfile/file_nas@gmail.com_api_test.rest
 GET  http://localhost:3000/fileShare/withMe
 
 ###
-DELETE   http://localhost:3000/fileShare/fileShare_file_nas@gmail.com_api_test.rest_nas1@gmail.com
+DELETE   http://localhost:3000/deleteShareFile/file_nas@gmail.com_api_test.rest

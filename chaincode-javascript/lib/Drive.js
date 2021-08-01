@@ -59,20 +59,21 @@ class Drive extends Contract {
         return fileJSON.toString();
     }
 
-    async ChangeFileName(ctx, Key, newName) {
-        const fileJSON = await this.AssetExists(ctx, Key);
+    async ChangeFileName(ctx, Key, newName, newDownloadLink) {
+        const fileJSON = await ctx.stub.getState(Key);
         if (!fileJSON || fileJSON.length === 0) {
             throw new Error(`The asset ${Key} does not exist`);
         }
         // overwriting original asset with new asset
         let file = JSON.parse(fileJSON.toString());
         file.Name = newName;
+        file.DownloadLink = newDownloadLink;
         await ctx.stub.putState(Key, Buffer.from(JSON.stringify(file)));
         return JSON.stringify(file);
     }
 
     async DeleteFile(ctx, Key) {
-        const fileJSON = await this.AssetExists(ctx, Key);
+        const fileJSON = await ctx.stub.getState(Key);
         if (!fileJSON || fileJSON.length === 0) {
             throw new Error(`The asset ${Key} does not exist`);
         }
@@ -110,7 +111,7 @@ class Drive extends Contract {
     }
 
     async DeleteFileShare(ctx, Key) {
-        const fileShareJSON = await this.AssetExists(ctx, Key);
+        const fileShareJSON = await ctx.stub.getState(Key);
         if (!fileShareJSON || fileShareJSON.length === 0) {
             throw new Error(`file share ${Key} does not exist`);
         }
@@ -120,7 +121,15 @@ class Drive extends Contract {
         });
     }
 
-    async FindFileShareByUser(ctx, userEmail) {
+    async FindFileShare(ctx, fileShareKey) {
+        const fileShareJSON = await ctx.stub.getState(fileShareKey); // get the asset from chaincode state
+        if (!fileShareJSON || fileShareJSON.length === 0) {
+            throw new Error(`The file with ${fileShareKey} does not exist`);
+        }
+        return fileShareJSON.toString();
+    }
+
+    async FindFileSharedWithUser(ctx, userEmail) {
         let queryString = {};
         queryString.selector = {};
         queryString.selector.DocType = 'fileShare';

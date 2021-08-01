@@ -10,7 +10,7 @@ const fs = require("fs");
 const util = require("util");
 
 const channelName = 'mychannel';
-const chaincodeName = 'drive13';
+const chaincodeName = 'drive4';
 const mspOrg1 = 'Org1MSP';
 const walletPath = path.join(__dirname, 'wallet');
 const org1UserId = 'appUser';
@@ -142,23 +142,19 @@ async function main() {
                     if (error !== undefined) {
                         return res.status(500).send(`Server error. Failed to move file ${error}...`)
                     }
-                    const downloadLink = path.join(fileDestination, fileName)
-                    console.log(downloadLink)
-
-                    const user = JSON.parse(req.cookies.user.toString())
-                    console.log(user)
-                    let uploaderEmail = user.Email;
-                    console.log(uploaderEmail)
-                    const key = `file_${uploaderEmail}_${fileName}`;
-                    const fileHash = await sha256(fileDestination)
                     try {
+                        const downloadLink = path.join('uploadedFiles', fileName)
+                        const user = JSON.parse(req.cookies.user.toString())
+                        let uploaderEmail = user.Email;
+                        const key = `file_${uploaderEmail}_${fileName}`;
+                        const fileHash = await sha256(fileDestination)
                         let result = await contract.evaluateTransaction('CreateFile',
                             key, fileName, downloadLink,
                             fileHash, uploaderEmail);
                         await contract.submitTransaction('CreateFile',
                             key, fileName, downloadLink,
                             fileHash, uploaderEmail);
-                        return res.send(result)
+                        return res.send(`${result.toString()} and\n ${user.Email}`)
                     } catch (error) {
                         return res.status(400).send(error.toString())
                     }
@@ -166,7 +162,206 @@ async function main() {
                 })
 
             })
+            app.get('/file', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFileByUser',
+                        user.Email
+                    );
+                    return res.send(result.toString())
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
+            app.get('/file/:fileKey', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                const fileKey = req.params.fileKey;
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFile',
+                        fileKey);
+                    const uploadedFile = JSON.parse(result)
 
+                    result = await contract.evaluateTransaction(
+                        'FindFileSharedWithUser',
+                        user.Email);
+                    let filesSharedWithMe = JSON.parse(result)
+                    filesSharedWithMe = filesSharedWithMe.map(data => data.Record);
+                    const thisFileShareWithMe = filesSharedWithMe.some(fileShare => fileShare.FileKey === uploadedFile.Key)
+                    if (uploadedFile.UploaderEmail !== user.Email && !thisFileShareWithMe) {
+                        return res.status(403).send("You are not authorized to view this file")
+                    } else {
+                        return res.send(result.toString())
+                    }
+                } catch (error) {
+                    return res.status(400).send(JSON.stringify(uploadedFile))
+                }
+            })
+            app.put('/file/:fileKey', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                const fileKey = req.params.fileKey;
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFile', fileKey);
+
+                    const uploadedFile = JSON.parse(result);
+                    const newFileName = req.body.newFileName;
+
+                    if (uploadedFile.UploaderEmail !== user.Email) {
+                        return res.status(403).send("You are not authorized to update this file")
+                    } else {
+                        //move file and update download link
+                        const renameFile = util.promisify(fs.rename)
+                        const srcPath = path.join('public', uploadedFile.DownloadLink)
+                        const destinationPath = path.join('public', 'uploadedFiles', newFileName)
+                        const err = await renameFile(srcPath, destinationPath);
+
+                        const newDownloadLink = path.join('uploadedFiles', newFileName)
+                        if (err !== undefined) {
+                            return res.status(500).send(`Server error ${err}`)
+                        }
+
+                        let result = await contract.evaluateTransaction(
+                            'ChangeFileName',
+                            fileKey, newFileName, newDownloadLink);
+                        await contract.submitTransaction(
+                            'ChangeFileName',
+                            fileKey, newFileName, newDownloadLink);
+                        return res.send(result.toString())
+                    }
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
+            app.delete('/delete/:fileKey', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                const fileKey = req.params.fileKey;
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFile', fileKey);
+
+                    const uploadedFile = JSON.parse(result);
+
+                    if (uploadedFile.UploaderEmail !== user.Email) {
+                        return res.status(403).send("You are not authorized to delete this file")
+                    } else {
+                        //delete file and update download link
+                        const deleteFile = util.promisify(fs.unlink)
+
+                        const srcPath = path.join('public', uploadedFile.DownloadLink)
+                        const err = await deleteFile(srcPath);
+                        if (err !== undefined) {
+                            return res.status(500).send(`Server error ${err}`)
+                        }
+                        let result = await contract.evaluateTransaction(
+                            'DeleteFile', fileKey);
+                        await contract.submitTransaction('DeleteFile', fileKey);
+                        return res.send("Delete file successfully.")
+                    }
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
+
+            app.post('/fileShare', async function (req, res) {
+                const {fileKey, sharedWithEmail} = req.body
+                const key = `fileShare_${fileKey}_${sharedWithEmail}`;
+
+                try {
+                    let result = await contract.evaluateTransaction(
+                        'ShareFile', key, fileKey, sharedWithEmail
+                    );
+                    await contract.submitTransaction(
+                        'ShareFile', key, fileKey, sharedWithEmail
+                    );
+                    res.send(result.toString())
+                } catch (error) {
+                    res.status(400).send(error.toString())
+                }
+            })
+            app.get('/fileShare/byfile/:fileKey', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                const fileKey = req.params.fileKey;
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFile',
+                        fileKey);
+                    const uploadedFile = JSON.parse(result)
+                    if (uploadedFile.UploaderEmail !== user.Email) {
+                        return res.status(403).send("You are not authorized to view this file")
+                    } else {
+                        let result = await contract.evaluateTransaction(
+                            'FindFileSharedByFile',
+                            fileKey);
+                        return res.send(result.toString())
+                    }
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
+            app.get('/fileShare/withMe', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFileSharedWithUser',
+                        user.Email);
+                    res.send(result.toString())
+
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
+            app.delete('/fileShare/:fileShareKey', async function (req, res) {
+                if (req.cookies.user === undefined) {
+                    return res.status(400).send("Your are not logged in..")
+                }
+                const fileShareKey = req.params.fileShareKey;
+                try {
+                    const user = JSON.parse(req.cookies.user.toString())
+                    let result = await contract.evaluateTransaction(
+                        'FindFileShare', fileShareKey);
+
+                    const fileShare = JSON.parse(result);
+
+                    const fileKey = fileShare.FileKey;
+                    console.log("File key", fileShare, fileKey)
+                    result = await contract.evaluateTransaction(
+                        'FindFile', fileKey);
+
+                    const uploadedFile = JSON.parse(result);
+                    console.log(uploadedFile.UploaderEmail !== user.Email, fileShare.SharedWithEmail !== user.Email)
+                    if (uploadedFile.UploaderEmail !== user.Email && fileShare.SharedWithEmail !== user.Email) {
+                        return res.status(403).send("You are not authorized to delete this file")
+                    } else {
+                        //delete file and update download link
+                        let result = await contract.evaluateTransaction(
+                            'DeleteFileShare', fileShareKey);
+                        await contract.submitTransaction('DeleteFileShare', fileShareKey);
+                        return res.send(`Delete file share successfully.\n${result},${user.Email}`)
+                    }
+                } catch (error) {
+                    return res.status(400).send(error.toString())
+                }
+            })
 
             app.listen(port, () => {
                 console.log(`Server listening at http://localhost:${port}`)

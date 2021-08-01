@@ -7,7 +7,7 @@ const {buildCAClient, registerAndEnrollUser, enrollAdmin} = require('../../test-
 const {buildCCPOrg1, buildWallet} = require('../../test-application/javascript/AppUtil.js');
 
 const channelName = 'mychannel';
-const chaincodeName = 'drive13';
+const chaincodeName = 'drive1';
 const mspOrg1 = 'Org1MSP';
 const walletPath = path.join(__dirname, 'wallet');
 const org1UserId = 'appUser';
@@ -54,14 +54,14 @@ async function main() {
             } catch (error) {
                 console.log(`*** Successfully caught the error: \n    ${error}`);
             }
-            /////////////
-            // try {
-            //     let result = await contract.evaluateTransaction('CreateUser', 'user_jam@gmail.com', 'jam@gmail.com', 'jam12345', 'jam');
-            //     await contract.submitTransaction('CreateUser', 'user_jam@gmail.com', 'jam@gmail.com', 'jam12345', 'jam');
-            //     console.log(`Create user successfully\n, ${result}`);
-            // } catch (error) {
-            //     console.log(`*** Successfully caught the error: \n    ${error}`);
-            // }
+            ///////////
+            try {
+                let result = await contract.evaluateTransaction('CreateUser', 'user_jam@gmail.com', 'jam@gmail.com', 'jam12345', 'jam');
+                await contract.submitTransaction('CreateUser', 'user_jam@gmail.com', 'jam@gmail.com', 'jam12345', 'jam');
+                console.log(`Create user successfully\n, ${result}`);
+            } catch (error) {
+                console.log(`*** Successfully caught the error: \n    ${error}`);
+            }
 
             try {
                 let result = await contract.evaluateTransaction(
@@ -99,7 +99,7 @@ async function main() {
             }
             //
             try {
-                let result = await contract.submitTransaction('ChangeFileName', 'file_cert.txt_hash123', 'cert_new.txt');
+                let result = await contract.submitTransaction('ChangeFileName', 'file_letter.txt_hash567', 'cert_new.txt',"newDownloadLink");
                 console.log(`Change File successfully\n\n, ${result}`);
             } catch (error) {
                 console.log(`*** Successfully caught the error: \n    ${error}`);
@@ -152,13 +152,13 @@ async function main() {
                 console.log(`*** Successfully caught the error: \n    ${error}`);
             }
 
-            try {
-                const email = 'jam@gmail.com'
-                let result = await contract.evaluateTransaction('FindFileShareByUser', email);
-                console.log(`Found file Share by User email: ${email} \n\n, ${result}`);
-            } catch (error) {
-                console.log(`*** Successfully caught the error: \n    ${error}`);
-            }
+            // try {
+            //     const email = 'jam@gmail.com'
+            //     let result = await contract.evaluateTransaction('FindFileShareByUser', email);
+            //     console.log(`Found file Share by User email: ${email} \n\n, ${result}`);
+            // } catch (error) {
+            //     console.log(`*** Successfully caught the error: \n    ${error}`);
+            // }
 
 
         } finally {
