@@ -1,8 +1,4 @@
-/*
- * Copyright IBM Corp. All Rights Reserved.
- *
- * SPDX-License-Identifier: Apache-2.0
- */
+
 
 'use strict';
 
@@ -17,6 +13,7 @@ class Drive extends Contract {
             Password: password,
             Name: name,
             DocType: 'user',
+            isLoggedIn: false,
         };
         await ctx.stub.putState(key, Buffer.from(JSON.stringify(user)));
         return JSON.stringify(user);
@@ -24,9 +21,9 @@ class Drive extends Contract {
 
     // ReadAsset returns the asset stored in the world state with given id.
     async FindUser(ctx, email, password) {
-        console.log('Email name is', email);
+        // console.log('Email name is', email);
         let Key = `user_${email}`;
-        const userJSON = await ctx.stub.getState(Key); // get the asset from chaincode state
+        const userJSON = await ctx.stub.getState(Key); // get the user from chaincode state
         if (!userJSON || userJSON.length === 0) {
             throw new Error(`The asset ${email} does not exist`);
         }
@@ -45,7 +42,6 @@ class Drive extends Contract {
             FileHash: fileHash,
             UploaderEmail: uploaderEmail,
             DocType: 'file',
-            Deleted: false
         };
         await ctx.stub.putState(key, Buffer.from(JSON.stringify(file)));
         return JSON.stringify(file);
@@ -89,6 +85,16 @@ class Drive extends Contract {
         queryString.selector.DocType = 'file';
         queryString.selector.UploaderEmail = email;
         return await this.GetQueryResultForQueryString(ctx, JSON.stringify(queryString));
+    }
+
+    async FindUserByKey(ctx, Key) {
+        const userJson = await ctx.sub.getState(Key);
+        if (!userJson || userJson.length === 0) {
+            throw new Error(`The User ${Key} does not exist`);
+        }
+        let user = JSON.parse(userJson.toString());
+        user.Password = 'Secret';
+        return JSON.stringify(user);
     }
 
     async ShareFile(ctx, key, fileKey, sharedWithEmail) {
